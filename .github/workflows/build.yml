@@ -173,7 +173,7 @@ jobs:
 
   publish:
     needs: changelog
-    if: github.repository == 'arduino/arduino-ide' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    if: github.repository == 'OS-Q/S04B' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     steps:
       - name: Download [GitHub Actions]
@@ -194,7 +194,7 @@ jobs:
 
   release:
     needs: changelog
-    if: github.repository == 'arduino/arduino-ide' && startsWith(github.ref, 'refs/tags/')
+    if: github.repository == 'OS-Q/S04B' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - name: Download [GitHub Actions]
