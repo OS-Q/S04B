@@ -16,3 +16,6 @@ yarn*.log
 plugins
 # the config files for the CLI
 arduino-ide-extension/data/cli/config
+README
+docs/
+static/
