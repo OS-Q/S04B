@@ -11,7 +11,7 @@ on:
     branches:
       - master
   schedule:
-    - cron: '0 3 * * *' # run every day at 3AM (https://docs.github.com/en/actions/reference/events-that-trigger-workflows#scheduled-events-schedule)
+    - cron: '0 3 * * *'
 
 env:
   JOB_TRANSFER_ARTIFACT: build-artifacts
@@ -24,7 +24,7 @@ jobs:
       matrix:
         config:
           - os: windows-latest
-          - os: ubuntu-18.04 # https://github.com/OS-Q/S04B/issues/259
+          - os: ubuntu-18.04
           # - os: macos-latest
     runs-on: ${{ matrix.config.os }}
     # timeout-minutes: 90
@@ -52,7 +52,7 @@ jobs:
           AC_PASSWORD: ${{ secrets.AC_PASSWORD }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          IS_NIGHTLY: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
+          IS_NIGHTLY: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') }}
           IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') }}
           IS_FORK: ${{ github.event.pull_request.head.repo.fork == true }}
         run: |
@@ -71,7 +71,6 @@ jobs:
               elif [ "${{ runner.OS }}" = "Windows" ]; then
                 export CSC_LINK="${{ runner.temp }}/signing_certificate.pfx"
                 echo "${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PFX }}" | base64 --decode > "$CSC_LINK"
-
                 export CSC_KEY_PASSWORD="${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}"
               fi
             fi
@@ -154,7 +153,7 @@ jobs:
             echo "$BODY" > CHANGELOG.txt
 
       - name: Upload Changelog [GitHub Actions]
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master')
         uses: actions/upload-artifact@v2
         with:
           name: ${{ env.JOB_TRANSFER_ARTIFACT }}
@@ -162,7 +161,7 @@ jobs:
 
   publish:
     needs: changelog
-    if: github.repository == 'OS-Q/S04B' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    if: github.repository == 'OS-Q/S04B' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'))
     runs-on: ubuntu-latest
     steps:
       - name: Download [GitHub Actions]
@@ -217,8 +216,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-  clean:
-    # This job must run after all jobs that use the transfer artifact.
+    clean:
     needs:
       - build
       - publish
