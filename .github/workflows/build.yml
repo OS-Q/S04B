@@ -25,9 +25,9 @@ jobs:
         config:
           - os: windows-latest
           - os: ubuntu-18.04 # https://github.com/OS-Q/S04B/issues/259
-          - os: macos-latest
+          # - os: macos-latest
     runs-on: ${{ matrix.config.os }}
-    timeout-minutes: 90
+    # timeout-minutes: 90
 
     steps:
       - name: Checkout
