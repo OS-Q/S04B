@@ -17,31 +17,31 @@ export abstract class GrpcClientProvider<C> {
     protected readonly configService: ConfigServiceImpl;
 
     protected _port: string | number | undefined;
-    protected _client: C | undefined;
+    protected _client: C | Error | undefined;
 
     @postConstruct()
     protected init(): void {
         const updateClient = () => {
             const cliConfig = this.configService.cliConfiguration;
             this.reconcileClient(cliConfig ? cliConfig.daemon.port : undefined);
-        }
+        };
         this.configService.onConfigChange(updateClient);
         this.daemon.ready.then(updateClient);
         this.daemon.onDaemonStopped(() => {
-            if (this._client) {
+            if (this._client && !(this._client instanceof Error)) {
                 this.close(this._client);
             }
             this._client = undefined;
             this._port = undefined;
-        })
+        });
     }
 
-    async client(): Promise<C | undefined> {
+    async client(): Promise<C | Error | undefined> {
         try {
             await this.daemon.ready;
             return this._client;
         } catch (error) {
-            return undefined;
+            return error;
         }
     }
 
@@ -50,7 +50,7 @@ export abstract class GrpcClientProvider<C> {
             return; // Nothing to do.
         }
         this._port = port;
-        if (this._client) {
+        if (this._client && !(this._client instanceof Error)) {
             this.close(this._client);
             this._client = undefined;
         }
@@ -60,6 +60,7 @@ export abstract class GrpcClientProvider<C> {
                 this._client = client;
             } catch (error) {
                 this.logger.error('Could not create client for gRPC.', error)
+                this._client = error;
             }
         }
     }

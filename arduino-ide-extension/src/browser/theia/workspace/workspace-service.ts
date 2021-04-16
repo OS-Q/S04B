@@ -6,10 +6,13 @@ import { MessageService } from '@theia/core/lib/common/message-service';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import { FrontendApplication } from '@theia/core/lib/browser/frontend-application';
 import { FocusTracker, Widget } from '@theia/core/lib/browser';
+import { FrontendApplicationStateService } from '@theia/core/lib/browser/frontend-application-state';
 import { WorkspaceService as TheiaWorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { ConfigService } from '../../../common/protocol/config-service';
 import { SketchesService, Sketch, SketchContainer } from '../../../common/protocol/sketches-service';
 import { ArduinoWorkspaceRootResolver } from '../../arduino-workspace-resolver';
+import { BoardsServiceProvider } from '../../boards/boards-service-provider';
+import { BoardsConfig } from '../../boards/boards-config';
 
 @injectable()
 export class WorkspaceService extends TheiaWorkspaceService {
@@ -29,10 +32,18 @@ export class WorkspaceService extends TheiaWorkspaceService {
     @inject(ApplicationServer)
     protected readonly applicationServer: ApplicationServer;
 
+    @inject(FrontendApplicationStateService)
+    protected readonly appStateService: FrontendApplicationStateService;
+
+    @inject(BoardsServiceProvider)
+    protected readonly boardsServiceProvider: BoardsServiceProvider;
+
+    private application: FrontendApplication;
     private workspaceUri?: Promise<string | undefined>;
-    private version?: string
+    private version?: string;
 
     async onStart(application: FrontendApplication): Promise<void> {
+        this.application = application;
         const info = await this.applicationServer.getApplicationInfo();
         this.version = info?.version;
         application.shell.onDidChangeCurrentWidget(this.onCurrentWidgetChange.bind(this));
@@ -62,15 +73,23 @@ export class WorkspaceService extends TheiaWorkspaceService {
                 }
                 return (await this.sketchService.createNewSketch()).uri;
             } catch (err) {
+                this.appStateService.reachedState('ready').then(() => this.application.shell.update());
                 this.logger.fatal(`Failed to determine the sketch directory: ${err}`)
                 this.messageService.error(
                     'There was an error creating the sketch directory. ' +
                     'See the log for more details. ' +
-                    'The application will probably not work as expected.')
+                    'The application will probably not work as expected.');
                 return super.getDefaultWorkspaceUri();
             }
         })();
         return this.workspaceUri;
+    }
+
+    protected openNewWindow(workspacePath: string): void {
+        const { boardsConfig } = this.boardsServiceProvider;
+        const url = BoardsConfig.Config.setConfig(boardsConfig, new URL(window.location.href)); // Set the current boards config for the new browser window.
+        url.hash = workspacePath;
+        this.windowService.openNewWindow(url.toString());
     }
 
     private async isValid(uri: string): Promise<boolean> {

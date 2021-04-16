@@ -1,7 +1,8 @@
 import { injectable } from 'inversify'
 import { remote } from 'electron';
+import { isOSX } from '@theia/core/lib/common/os';
 import { Keybinding } from '@theia/core/lib/common/keybinding';
-import { CompositeMenuNode } from '@theia/core/lib/common/menu';
+import { CompositeMenuNode, MAIN_MENU_BAR, MenuPath } from '@theia/core/lib/common/menu';
 import { ElectronMainMenuFactory as TheiaElectronMainMenuFactory, ElectronMenuOptions } from '@theia/core/lib/electron-browser/menu/electron-main-menu-factory';
 import { ArduinoMenus, PlaceholderMenuNode } from '../../../browser/menu/arduino-menus';
 
@@ -10,7 +11,33 @@ export class ElectronMainMenuFactory extends TheiaElectronMainMenuFactory {
 
     createMenuBar(): Electron.Menu {
         this._toggledCommands.clear(); // https://github.com/eclipse-theia/theia/issues/8977
-        return super.createMenuBar();
+        const menuModel = this.menuProvider.getMenu(MAIN_MENU_BAR);
+        const template = this.fillMenuTemplate([], menuModel);
+        if (isOSX) {
+            template.unshift(this.createOSXMenu());
+        }
+        const menu = remote.Menu.buildFromTemplate(this.escapeAmpersand(template));
+        this._menu = menu;
+        return menu;
+    }
+
+    createContextMenu(menuPath: MenuPath, args?: any[]): Electron.Menu {
+        const menuModel = this.menuProvider.getMenu(menuPath);
+        const template = this.fillMenuTemplate([], menuModel, args, { showDisabled: false });
+        return remote.Menu.buildFromTemplate(this.escapeAmpersand(template));
+    }
+
+    // TODO: remove after https://github.com/eclipse-theia/theia/pull/9231
+    private escapeAmpersand(template: Electron.MenuItemConstructorOptions[]): Electron.MenuItemConstructorOptions[] {
+        for (const option of template) {
+            if (option.label) {
+                option.label = option.label.replace(/\&+/g, '&$&');
+            }
+            if (option.submenu) {
+                this.escapeAmpersand(option.submenu as Electron.MenuItemConstructorOptions[]);
+            }
+        }
+        return template;
     }
 
     protected acceleratorFor(keybinding: Keybinding): string {
@@ -26,15 +53,17 @@ export class ElectronMainMenuFactory extends TheiaElectronMainMenuFactory {
         const { submenu } = super.createOSXMenu();
         const label = 'Arduino IDE';
         if (!!submenu && !(submenu instanceof remote.Menu)) {
-            const [/* about */, /* settings */, ...rest] = submenu;
+            const [/* about */, /* preferences */, ...rest] = submenu;
             const about = this.fillMenuTemplate([], this.menuProvider.getMenu(ArduinoMenus.HELP__ABOUT_GROUP));
-            const settings = this.fillMenuTemplate([], this.menuProvider.getMenu(ArduinoMenus.FILE__SETTINGS_GROUP));
+            const preferences = this.fillMenuTemplate([], this.menuProvider.getMenu(ArduinoMenus.FILE__PREFERENCES_GROUP));
+            const advanced = this.fillMenuTemplate([], this.menuProvider.getMenu(ArduinoMenus.FILE__ADVANCED_GROUP));
             return {
                 label,
                 submenu: [
                     ...about,
                     { type: 'separator' },
-                    ...settings,
+                    ...preferences,
+                    ...advanced,
                     { type: 'separator' },
                     ...rest
                 ]

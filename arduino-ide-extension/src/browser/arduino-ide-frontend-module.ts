@@ -24,6 +24,8 @@ import { ProblemContribution as TheiaProblemContribution } from '@theia/markers/
 import { ProblemContribution } from './theia/markers/problem-contribution';
 import { FileNavigatorContribution } from './theia/navigator/navigator-contribution';
 import { FileNavigatorContribution as TheiaFileNavigatorContribution } from '@theia/navigator/lib/browser/navigator-contribution';
+import { KeymapsFrontendContribution } from './theia/keymaps/keymaps-frontend-contribution';
+import { KeymapsFrontendContribution as TheiaKeymapsFrontendContribution } from '@theia/keymaps/lib/browser/keymaps-frontend-contribution';
 import { ArduinoToolbarContribution } from './toolbar/arduino-toolbar-contribution';
 import { EditorContribution as TheiaEditorContribution } from '@theia/editor/lib/browser/editor-contribution';
 import { EditorContribution } from './theia/editor/editor-contribution';
@@ -67,8 +69,7 @@ import { ListItemRenderer } from './widgets/component-list/list-item-renderer';
 import { ColorContribution } from '@theia/core/lib/browser/color-application-contribution';
 import { MonacoThemingService } from '@theia/monaco/lib/browser/monaco-theming-service';
 import { ArduinoDaemonPath, ArduinoDaemon } from '../common/protocol/arduino-daemon';
-import { EditorManager as TheiaEditorManager, EditorCommandContribution as TheiaEditorCommandContribution } from '@theia/editor/lib/browser';
-import { EditorManager } from './theia/editor/editor-manager';
+import { EditorCommandContribution as TheiaEditorCommandContribution } from '@theia/editor/lib/browser';
 import { FrontendConnectionStatusService, ApplicationConnectionStatusContribution } from './theia/core/connection-status-service';
 import {
     FrontendConnectionStatusService as TheiaFrontendConnectionStatusService,
@@ -119,8 +120,8 @@ import { OutputChannelRegistryMainImpl as TheiaOutputChannelRegistryMainImpl, Ou
 import { ExecutableService, ExecutableServicePath } from '../common/protocol';
 import { MonacoTextModelService as TheiaMonacoTextModelService } from '@theia/monaco/lib/browser/monaco-text-model-service';
 import { MonacoTextModelService } from './theia/monaco/monaco-text-model-service';
-import { OutputServiceImpl } from './output-service-impl';
-import { OutputServicePath, OutputService } from '../common/protocol/output-service';
+import { ResponseServiceImpl } from './response-service-impl';
+import { ResponseServicePath, ResponseService } from '../common/protocol/response-service';
 import { NotificationCenter } from './notification-center';
 import { NotificationServicePath, NotificationServiceServer } from '../common/protocol';
 import { About } from './contributions/about';
@@ -153,6 +154,15 @@ import { SearchInWorkspaceWidget as TheiaSearchInWorkspaceWidget } from '@theia/
 import { SearchInWorkspaceWidget } from './theia/search-in-workspace/search-in-workspace-widget';
 import { SearchInWorkspaceResultTreeWidget as TheiaSearchInWorkspaceResultTreeWidget } from '@theia/search-in-workspace/lib/browser/search-in-workspace-result-tree-widget';
 import { SearchInWorkspaceResultTreeWidget } from './theia/search-in-workspace/search-in-workspace-result-tree-widget';
+import { MonacoEditorProvider } from './theia/monaco/monaco-editor-provider';
+import { MonacoEditorProvider as TheiaMonacoEditorProvider } from '@theia/monaco/lib/browser/monaco-editor-provider';
+import { DebugEditorModel } from './theia/debug/debug-editor-model';
+import { DebugEditorModelFactory } from '@theia/debug/lib/browser/editor/debug-editor-model';
+import { StorageWrapper } from './storage-wrapper';
+import { NotificationManager } from './theia/messages/notifications-manager';
+import { NotificationManager as TheiaNotificationManager } from '@theia/messages/lib/browser/notifications-manager';
+import { NotificationsRenderer as TheiaNotificationsRenderer } from '@theia/messages/lib/browser/notifications-renderer';
+import { NotificationsRenderer } from './theia/messages/notifications-renderer';
 
 const ElementQueries = require('css-element-queries/src/ElementQueries');
 
@@ -278,6 +288,7 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     rebind(TheiaOutlineViewContribution).to(OutlineViewContribution).inSingletonScope();
     rebind(TheiaProblemContribution).to(ProblemContribution).inSingletonScope();
     rebind(TheiaFileNavigatorContribution).to(FileNavigatorContribution).inSingletonScope();
+    rebind(TheiaKeymapsFrontendContribution).to(KeymapsFrontendContribution).inSingletonScope();
     rebind(TheiaEditorContribution).to(EditorContribution).inSingletonScope();
     rebind(TheiaMonacoStatusBarContribution).to(MonacoStatusBarContribution).inSingletonScope();
     rebind(TheiaApplicationShell).to(ApplicationShell).inSingletonScope();
@@ -305,6 +316,8 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     rebind(TheiaOutputChannelRegistryMainImpl).toService(OutputChannelRegistryMainImpl);
     bind(MonacoTextModelService).toSelf().inSingletonScope();
     rebind(TheiaMonacoTextModelService).toService(MonacoTextModelService);
+    bind(MonacoEditorProvider).toSelf().inSingletonScope();
+    rebind(TheiaMonacoEditorProvider).toService(MonacoEditorProvider);
 
     bind(SearchInWorkspaceWidget).toSelf();
     rebind(TheiaSearchInWorkspaceWidget).toService(SearchInWorkspaceWidget);
@@ -320,10 +333,6 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     rebind(TheiaApplicationConnectionStatusContribution).toService(ApplicationConnectionStatusContribution);
     bind(FrontendConnectionStatusService).toSelf().inSingletonScope();
     rebind(TheiaFrontendConnectionStatusService).toService(FrontendConnectionStatusService);
-
-    // Editor customizations. Sets the editor to `readOnly` if under the data dir.
-    bind(EditorManager).toSelf().inSingletonScope();
-    rebind(TheiaEditorManager).toService(EditorManager);
 
     // Decorator customizations
     bind(TabBarDecoratorService).toSelf().inSingletonScope();
@@ -378,11 +387,11 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     Contribution.configure(bind, ArchiveSketch);
     Contribution.configure(bind, AddZipLibrary);
 
-    bind(OutputServiceImpl).toSelf().inSingletonScope().onActivation(({ container }, outputService) => {
-        WebSocketConnectionProvider.createProxy(container, OutputServicePath, outputService);
-        return outputService;
+    bind(ResponseServiceImpl).toSelf().inSingletonScope().onActivation(({ container }, responseService) => {
+        WebSocketConnectionProvider.createProxy(container, ResponseServicePath, responseService);
+        return responseService;
     });
-    bind(OutputService).toService(OutputServiceImpl);
+    bind(ResponseService).toService(ResponseServiceImpl);
 
     bind(NotificationCenter).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(NotificationCenter);
@@ -415,6 +424,11 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(DebugConfigurationManager).toSelf().inSingletonScope();
     rebind(TheiaDebugConfigurationManager).toService(DebugConfigurationManager);
 
+    // Patch for the debug hover: https://github.com/eclipse-theia/theia/pull/9256/
+    rebind(DebugEditorModelFactory).toDynamicValue(({ container }) => <DebugEditorModelFactory>(editor =>
+        DebugEditorModel.createModel(container, editor)
+    )).inSingletonScope();
+
     // Preferences
     bindArduinoPreferences(bind);
 
@@ -426,4 +440,12 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(SettingsDialogProps).toConstantValue({
         title: 'Preferences'
     });
+
+    bind(StorageWrapper).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(StorageWrapper);
+
+    bind(NotificationManager).toSelf().inSingletonScope();
+    rebind(TheiaNotificationManager).toService(NotificationManager);
+    bind(NotificationsRenderer).toSelf().inSingletonScope();
+    rebind(TheiaNotificationsRenderer).toService(NotificationsRenderer);
 });

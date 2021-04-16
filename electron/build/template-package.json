@@ -29,7 +29,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OS-Q/S04B.git"
+    "url": "git+https://github.com/arduino/arduino-ide.git"
   },
   "// Notes:": [
     "The resolution for `fs-extra` was required due to this: https://spectrum.chat/theia/general/our-theia-electron-builder-app-no-longer-starts~f5cf09a0-6d88-448b-8818-24ad0ec2ee7c"
@@ -140,6 +140,6 @@
     "vscode-arduino-tools": "https://downloads.arduino.cc/vscode-arduino-tools/nightly/vscode-arduino-tools-0.0.1-beta.1.vsix",
     "vscode-builtin-json": "https://open-vsx.org/api/vscode/json/1.46.1/file/vscode.json-1.46.1.vsix",
     "vscode-builtin-json-language-features": "https://open-vsx.org/api/vscode/json-language-features/1.46.1/file/vscode.json-language-features-1.46.1.vsix",
-    "cortex-debug": "https://open-vsx.org/api/marus25/cortex-debug/0.3.7/file/marus25.cortex-debug-0.3.7.vsix"
+    "cortex-debug": "https://open-vsx.org/api/marus25/cortex-debug/0.3.10/file/marus25.cortex-debug-0.3.10.vsix"
   }
 }

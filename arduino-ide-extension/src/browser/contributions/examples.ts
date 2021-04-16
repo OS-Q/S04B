@@ -1,5 +1,6 @@
 import * as PQueue from 'p-queue';
 import { inject, injectable, postConstruct } from 'inversify';
+import { CommandHandler } from '@theia/core/lib/common/command';
 import { MenuPath, CompositeMenuNode, SubMenuOptions } from '@theia/core/lib/common/menu';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
 import { OpenSketch } from './open-sketch';
@@ -93,15 +94,19 @@ export abstract class Examples extends SketchContribution {
                 const { uri } = sketch;
                 const commandId = `arduino-open-example-${submenuPath.join(':')}--${uri}`;
                 const command = { id: commandId };
-                const handler = {
-                    execute: async () => {
-                        const sketch = await this.sketchService.cloneExample(uri);
-                        this.commandService.executeCommand(OpenSketch.Commands.OPEN_SKETCH.id, sketch);
-                    }
-                };
+                const handler = this.createHandler(uri);
                 pushToDispose.push(this.commandRegistry.registerCommand(command, handler));
                 this.menuRegistry.registerMenuAction(submenuPath, { commandId, label: sketch.name, order: sketch.name.toLocaleLowerCase() });
                 pushToDispose.push(Disposable.create(() => this.menuRegistry.unregisterMenuAction(command)));
+            }
+        }
+    }
+
+    protected createHandler(uri: string): CommandHandler {
+        return {
+            execute: async () => {
+                const sketch = await this.sketchService.cloneExample(uri);
+                return this.commandService.executeCommand(OpenSketch.Commands.OPEN_SKETCH.id, sketch);
             }
         }
     }
@@ -154,15 +159,14 @@ export class LibraryExamples extends Examples {
     protected async register(board: Board | undefined = this.boardsServiceClient.boardsConfig.selectedBoard): Promise<void> {
         return this.queue.add(async () => {
             this.toDispose.dispose();
-            if (!board || !board.fqbn) {
-                return;
-            }
-            const { fqbn, name } = board;
+            const fqbn = board?.fqbn;
+            const name = board?.name;
+            // Shows all examples when no board is selected, or the platform of the currently selected board is not installed.
             const { user, current, any } = await this.examplesService.installed({ fqbn });
             if (user.length) {
                 (user as any).unshift('Examples from Custom Libraries');
             }
-            if (current.length) {
+            if (name && fqbn && current.length) {
                 (current as any).unshift(`Examples for ${name}`);
             }
             if (any.length) {

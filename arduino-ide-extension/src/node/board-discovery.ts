@@ -2,8 +2,8 @@ import { injectable, inject, postConstruct, named } from 'inversify';
 import { ClientDuplexStream } from '@grpc/grpc-js';
 import { ILogger } from '@theia/core/lib/common/logger';
 import { deepClone } from '@theia/core/lib/common/objects';
-import { CoreClientProvider } from './core-client-provider';
-import { BoardListWatchReq, BoardListWatchResp } from './cli-protocol/commands/board_pb';
+import { CoreClientAware } from './core-client-provider';
+import { BoardListWatchRequest, BoardListWatchResponse } from './cli-protocol/cc/arduino/cli/commands/v1/board_pb';
 import { Board, Port, NotificationServiceServer, AvailablePorts, AttachedBoardsChangeEvent } from '../common/protocol';
 
 /**
@@ -12,19 +12,16 @@ import { Board, Port, NotificationServiceServer, AvailablePorts, AttachedBoardsC
  * Unlike other services, this is not connection scoped.
  */
 @injectable()
-export class BoardDiscovery {
+export class BoardDiscovery extends CoreClientAware {
 
     @inject(ILogger)
     @named('discovery')
     protected discoveryLogger: ILogger;
 
-    @inject(CoreClientProvider)
-    protected readonly coreClientProvider: CoreClientProvider;
-
     @inject(NotificationServiceServer)
     protected readonly notificationService: NotificationServiceServer;
 
-    protected boardWatchDuplex: ClientDuplexStream<BoardListWatchReq, BoardListWatchResp> | undefined;
+    protected boardWatchDuplex: ClientDuplexStream<BoardListWatchRequest, BoardListWatchResponse> | undefined;
 
     /**
      * Keys are the `address` of the ports. \
@@ -46,10 +43,10 @@ export class BoardDiscovery {
     protected async init(): Promise<void> {
         const coreClient = await this.coreClient();
         const { client, instance } = coreClient;
-        const req = new BoardListWatchReq();
+        const req = new BoardListWatchRequest();
         req.setInstance(instance);
         this.boardWatchDuplex = client.boardListWatch();
-        this.boardWatchDuplex.on('data', (resp: BoardListWatchResp) => {
+        this.boardWatchDuplex.on('data', (resp: BoardListWatchResponse) => {
             const detectedPort = resp.getPort();
             if (detectedPort) {
 
@@ -131,25 +128,6 @@ export class BoardDiscovery {
             availablePorts.push(port);
         }
         return availablePorts;
-    }
-
-    private async coreClient(): Promise<CoreClientProvider.Client> {
-        const coreClient = await new Promise<CoreClientProvider.Client>(async resolve => {
-            const client = await this.coreClientProvider.client();
-            if (client) {
-                resolve(client);
-                return;
-            }
-            const toDispose = this.coreClientProvider.onClientReady(async () => {
-                const client = await this.coreClientProvider.client();
-                if (client) {
-                    toDispose.dispose();
-                    resolve(client);
-                    return;
-                }
-            });
-        });
-        return coreClient;
     }
 
 }

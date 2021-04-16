@@ -29,11 +29,13 @@ import { ExamplesServiceImpl } from './examples-service-impl';
 import { ExamplesService, ExamplesServicePath } from '../common/protocol/examples-service';
 import { ExecutableService, ExecutableServicePath } from '../common/protocol/executable-service';
 import { ExecutableServiceImpl } from './executable-service-impl';
-import { OutputServicePath, OutputService } from '../common/protocol/output-service';
+import { ResponseServicePath, ResponseService } from '../common/protocol/response-service';
 import { NotificationServiceServerImpl } from './notification-service-server';
 import { NotificationServiceServer, NotificationServiceClient, NotificationServicePath } from '../common/protocol';
 import { BackendApplication } from './theia/core/backend-application';
 import { BoardDiscovery } from './board-discovery';
+import { DefaultGitInit } from './theia/git/git-init';
+import { GitInit } from '@theia/git/lib/node/init/git-init';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(BackendApplication).toSelf().inSingletonScope();
@@ -125,7 +127,7 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
 
     // Output service per connection.
     bind(ConnectionContainerModule).toConstantValue(ConnectionContainerModule.create(({ bindFrontendService }) => {
-        bindFrontendService(OutputServicePath, OutputService);
+        bindFrontendService(ResponseServicePath, ResponseService);
     }));
 
     // Notify all connected frontend instances
@@ -163,5 +165,8 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
         const parentLogger = ctx.container.get<ILogger>(ILogger);
         return parentLogger.child('monitor-service');
     }).inSingletonScope().whenTargetNamed('monitor-service');
+
+    bind(DefaultGitInit).toSelf();
+    rebind(GitInit).toService(DefaultGitInit);
 
 });

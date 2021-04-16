@@ -16,7 +16,7 @@ import { firstToLowerCase } from '../common/utils';
 import { NotificationServiceServerImpl } from './notification-service-server';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { CoreClientAware } from './core-client-provider';
-import { LoadSketchReq, ArchiveSketchReq } from './cli-protocol/commands/commands_pb';
+import { ArchiveSketchRequest, LoadSketchRequest } from './cli-protocol/cc/arduino/cli/commands/v1/commands_pb';
 
 const WIN32_DRIVE_REGEXP = /^[a-zA-Z]:\\/;
 
@@ -108,7 +108,7 @@ export class SketchesServiceImpl extends CoreClientAware implements SketchesServ
 
     async loadSketch(uri: string): Promise<SketchWithDetails> {
         const { client, instance } = await this.coreClient();
-        const req = new LoadSketchReq();
+        const req = new LoadSketchRequest();
         req.setSketchPath(FileUri.fsPath(uri));
         req.setInstance(instance);
         const sketch = await new Promise<SketchWithDetails>((resolve, reject) => {
@@ -355,7 +355,7 @@ void loop() {
                 });
             });
         }
-        // https://github.com/OS-Q/S04B/issues/65
+        // https://github.com/arduino/arduino-ide/issues/65
         // When copying `/path/to/sketchbook/sketch_A` to `/path/to/sketchbook/sketch_A/anything` on a non-POSIX filesystem,
         // `ncp` makes a recursion and copies the folders over and over again. In such cases, we copy the source into a temp folder,
         // then move it to the desired destination.
@@ -384,7 +384,7 @@ void loop() {
         if (await promisify(fs.exists)(archivePath)) {
             await promisify(fs.unlink)(archivePath);
         }
-        const req = new ArchiveSketchReq();
+        const req = new ArchiveSketchRequest();
         req.setSketchPath(FileUri.fsPath(sketch.uri));
         req.setArchivePath(archivePath);
         await new Promise<string>((resolve, reject) => {

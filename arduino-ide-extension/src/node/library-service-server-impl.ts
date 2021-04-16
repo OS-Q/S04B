@@ -1,27 +1,16 @@
 import { injectable, inject } from 'inversify';
-import { LibraryDependency, LibraryPackage, LibraryService } from '../common/protocol/library-service';
+import { LibraryDependency, LibraryLocation, LibraryPackage, LibraryService } from '../common/protocol/library-service';
 import { CoreClientAware } from './core-client-provider';
 import {
-    LibrarySearchReq,
-    LibrarySearchResp,
-    LibraryListReq,
-    LibraryListResp,
-    LibraryRelease,
-    InstalledLibrary,
-    LibraryInstallReq,
-    LibraryInstallResp,
-    LibraryUninstallReq,
-    LibraryUninstallResp,
-    Library,
-    LibraryResolveDependenciesReq,
-    ZipLibraryInstallReq,
-    ZipLibraryInstallResp
-} from './cli-protocol/commands/lib_pb';
+    InstalledLibrary, Library, LibraryInstallRequest, LibraryListRequest, LibraryListResponse, LibraryLocation as GrpcLibraryLocation, LibraryRelease,
+    LibraryResolveDependenciesRequest, LibraryUninstallRequest, ZipLibraryInstallRequest, LibrarySearchRequest,
+    LibrarySearchResponse
+} from './cli-protocol/cc/arduino/cli/commands/v1/lib_pb';
 import { Installable } from '../common/protocol/installable';
 import { ILogger, notEmpty } from '@theia/core';
 import { FileUri } from '@theia/core/lib/node';
-import { OutputService, NotificationServiceServer } from '../common/protocol';
-
+import { ResponseService, NotificationServiceServer } from '../common/protocol';
+import { InstallWithProgress } from './grpc-installable';
 
 @injectable()
 export class LibraryServiceImpl extends CoreClientAware implements LibraryService {
@@ -29,8 +18,8 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
     @inject(ILogger)
     protected logger: ILogger;
 
-    @inject(OutputService)
-    protected readonly outputService: OutputService;
+    @inject(ResponseService)
+    protected readonly responseService: ResponseService;
 
     @inject(NotificationServiceServer)
     protected readonly notificationServer: NotificationServiceServer;
@@ -39,10 +28,10 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
         const coreClient = await this.coreClient();
         const { client, instance } = coreClient;
 
-        const listReq = new LibraryListReq();
+        const listReq = new LibraryListRequest();
         listReq.setInstance(instance);
-        const installedLibsResp = await new Promise<LibraryListResp>((resolve, reject) => client.libraryList(listReq, (err, resp) => !!err ? reject(err) : resolve(resp)));
-        const installedLibs = installedLibsResp.getInstalledLibraryList();
+        const installedLibsResp = await new Promise<LibraryListResponse>((resolve, reject) => client.libraryList(listReq, (err, resp) => !!err ? reject(err) : resolve(resp)));
+        const installedLibs = installedLibsResp.getInstalledLibrariesList();
         const installedLibsIdx = new Map<string, InstalledLibrary>();
         for (const installedLib of installedLibs) {
             if (installedLib.hasLibrary()) {
@@ -53,10 +42,10 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
             }
         }
 
-        const req = new LibrarySearchReq();
+        const req = new LibrarySearchRequest();
         req.setQuery(options.query || '');
         req.setInstance(instance);
-        const resp = await new Promise<LibrarySearchResp>((resolve, reject) => client.librarySearch(req, (err, resp) => !!err ? reject(err) : resolve(resp)));
+        const resp = await new Promise<LibrarySearchResponse>((resolve, reject) => client.librarySearch(req, (err, resp) => !!err ? reject(err) : resolve(resp)));
         const items = resp.getLibrariesList()
             .filter(item => !!item.getLatest())
             .slice(0, 50)
@@ -81,14 +70,15 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
     async list({ fqbn }: { fqbn?: string | undefined }): Promise<LibraryPackage[]> {
         const coreClient = await this.coreClient();
         const { client, instance } = coreClient;
-        const req = new LibraryListReq();
+        const req = new LibraryListRequest();
         req.setInstance(instance);
-        req.setAll(true);
         if (fqbn) {
+            // Only get libraries from the cores when the FQBN is defined. Otherwise, we retrieve user installed libraries only.
+            req.setAll(true); // https://github.com/arduino/arduino-ide/pull/303#issuecomment-815556447
             req.setFqbn(fqbn);
         }
 
-        const resp = await new Promise<LibraryListResp | undefined>((resolve, reject) => {
+        const resp = await new Promise<LibraryListResponse | undefined>((resolve, reject) => {
             client.libraryList(req, ((error, r) => {
                 if (error) {
                     const { message } = error;
@@ -104,6 +94,13 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
                         resolve(undefined);
                         return;
                     }
+
+                    // It's a hack to handle https://github.com/arduino/arduino-cli/issues/1262 gracefully.
+                    if (message.indexOf('unknown package') !== -1) {
+                        resolve(undefined);
+                        return;
+                    }
+
                     reject(error);
                     return;
                 }
@@ -113,7 +110,7 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
         if (!resp) {
             return [];
         }
-        return resp.getInstalledLibraryList().map(item => {
+        return resp.getInstalledLibrariesList().map(item => {
             const library = item.getLibrary();
             if (!library) {
                 return undefined;
@@ -128,17 +125,27 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
                 summary: library.getParagraph(),
                 moreInfoLink: library.getWebsite(),
                 includes: library.getProvidesIncludesList(),
-                location: library.getLocation(),
+                location: this.mapLocation(library.getLocation()),
                 installDirUri: FileUri.create(library.getInstallDir()).toString(),
                 exampleUris: library.getExamplesList().map(fsPath => FileUri.create(fsPath).toString())
             }, library, [library.getVersion()]);
         }).filter(notEmpty);
     }
 
+    private mapLocation(location: GrpcLibraryLocation): LibraryLocation {
+        switch (location) {
+            case GrpcLibraryLocation.LIBRARY_LOCATION_IDE_BUILTIN: return LibraryLocation.IDE_BUILTIN;
+            case GrpcLibraryLocation.LIBRARY_LOCATION_USER: return LibraryLocation.USER;
+            case GrpcLibraryLocation.LIBRARY_LOCATION_PLATFORM_BUILTIN: return LibraryLocation.PLATFORM_BUILTIN;
+            case GrpcLibraryLocation.LIBRARY_LOCATION_REFERENCED_PLATFORM_BUILTIN: return LibraryLocation.REFERENCED_PLATFORM_BUILTIN;
+            default: throw new Error(`Unexpected location ${location}.`);
+        }
+    }
+
     async listDependencies({ item, version, filterSelf }: { item: LibraryPackage, version: Installable.Version, filterSelf?: boolean }): Promise<LibraryDependency[]> {
         const coreClient = await this.coreClient();
         const { client, instance } = coreClient;
-        const req = new LibraryResolveDependenciesReq();
+        const req = new LibraryResolveDependenciesRequest();
         req.setInstance(instance);
         req.setName(item.name);
         req.setVersion(version);
@@ -150,41 +157,36 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
                 }
                 resolve(resp.getDependenciesList().map(dep => <LibraryDependency>{
                     name: dep.getName(),
-                    installedVersion: dep.getVersioninstalled(),
-                    requiredVersion: dep.getVersionrequired()
+                    installedVersion: dep.getVersionInstalled(),
+                    requiredVersion: dep.getVersionRequired()
                 }));
             })
         });
         return filterSelf ? dependencies.filter(({ name }) => name !== item.name) : dependencies;
     }
 
-    async install(options: { item: LibraryPackage, version?: Installable.Version, installDependencies?: boolean }): Promise<void> {
+    async install(options: { item: LibraryPackage, progressId?: string, version?: Installable.Version, installDependencies?: boolean }): Promise<void> {
         const item = options.item;
         const version = !!options.version ? options.version : item.availableVersions[0];
         const coreClient = await this.coreClient();
         const { client, instance } = coreClient;
 
-        const req = new LibraryInstallReq();
+        const req = new LibraryInstallRequest();
         req.setInstance(instance);
         req.setName(item.name);
         req.setVersion(version);
         if (options.installDependencies === false) {
-            req.setNodeps(true);
+            req.setNoDeps(true);
         }
 
         console.info('>>> Starting library package installation...', item);
         const resp = client.libraryInstall(req);
-        resp.on('data', (r: LibraryInstallResp) => {
-            const prog = r.getProgress();
-            if (prog) {
-                this.outputService.append({ chunk: `downloading ${prog.getFile()}: ${prog.getCompleted()}%\n` });
-            }
-        });
+        resp.on('data', InstallWithProgress.createDataCallback({ progressId: options.progressId, responseService: this.responseService }));
         await new Promise<void>((resolve, reject) => {
             resp.on('end', resolve);
             resp.on('error', error => {
-                this.outputService.append({ chunk: `Failed to install library: ${item.name}${version ? `:${version}` : ''}.\n` });
-                this.outputService.append({ chunk: error.toString() });
+                this.responseService.appendToOutput({ chunk: `Failed to install library: ${item.name}${version ? `:${version}` : ''}.\n` });
+                this.responseService.appendToOutput({ chunk: error.toString() });
                 reject(error);
             });
         });
@@ -195,47 +197,36 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
         console.info('<<< Library package installation done.', item);
     }
 
-    async installZip({ zipUri, overwrite }: { zipUri: string, overwrite?: boolean }): Promise<void> {
+    async installZip({ zipUri, progressId, overwrite }: { zipUri: string, progressId?: string, overwrite?: boolean }): Promise<void> {
         const coreClient = await this.coreClient();
         const { client, instance } = coreClient;
-        const req = new ZipLibraryInstallReq();
+        const req = new ZipLibraryInstallRequest();
         req.setPath(FileUri.fsPath(zipUri));
         req.setInstance(instance);
         if (typeof overwrite === 'boolean') {
             req.setOverwrite(overwrite);
         }
         const resp = client.zipLibraryInstall(req);
-        resp.on('data', (r: ZipLibraryInstallResp) => {
-            const task = r.getTaskProgress();
-            if (task && task.getMessage()) {
-                this.outputService.append({ chunk: task.getMessage() });
-            }
-        });
+        resp.on('data', InstallWithProgress.createDataCallback({ progressId, responseService: this.responseService }));
         await new Promise<void>((resolve, reject) => {
             resp.on('end', resolve);
             resp.on('error', reject);
         });
     }
 
-    async uninstall(options: { item: LibraryPackage }): Promise<void> {
-        const item = options.item;
+    async uninstall(options: { item: LibraryPackage, progressId?: string }): Promise<void> {
+        const { item, progressId } = options;
         const coreClient = await this.coreClient();
         const { client, instance } = coreClient;
 
-        const req = new LibraryUninstallReq();
+        const req = new LibraryUninstallRequest();
         req.setInstance(instance);
         req.setName(item.name);
         req.setVersion(item.installedVersion!);
 
         console.info('>>> Starting library package uninstallation...', item);
-        let logged = false;
         const resp = client.libraryUninstall(req);
-        resp.on('data', (_: LibraryUninstallResp) => {
-            if (!logged) {
-                this.outputService.append({ chunk: `uninstalling ${item.name}:${item.installedVersion}%\n` });
-                logged = true;
-            }
-        });
+        resp.on('data', InstallWithProgress.createDataCallback({ progressId, responseService: this.responseService }));
         await new Promise<void>((resolve, reject) => {
             resp.on('end', resolve);
             resp.on('error', reject);
