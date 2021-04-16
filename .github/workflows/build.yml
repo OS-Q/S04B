@@ -3,13 +3,13 @@ name: Arduino IDE
 on:
   push:
     branches:
-      - main
+      - master
     tags:
       - '[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
   pull_request:
     branches:
-      - main
+      - master
   schedule:
     - cron: '0 3 * * *' # run every day at 3AM (https://docs.github.com/en/actions/reference/events-that-trigger-workflows#scheduled-events-schedule)
 
@@ -19,12 +19,12 @@ env:
 jobs:
 
   build:
-    if: github.repository == 'arduino/arduino-ide'
+    if: github.repository == 'OS-Q/S04B'
     strategy:
       matrix:
         config:
           - os: windows-latest
-          - os: ubuntu-18.04 # https://github.com/arduino/arduino-ide/issues/259
+          - os: ubuntu-18.04 # https://github.com/OS-Q/S04B/issues/259
           - os: macos-latest
     runs-on: ${{ matrix.config.os }}
     timeout-minutes: 90
@@ -111,7 +111,7 @@ jobs:
         with:
           name: ${{ env.JOB_TRANSFER_ARTIFACT }}
           path: ${{ env.JOB_TRANSFER_ARTIFACT }}
-      
+
       - name: Upload tester build artifact
         uses: actions/upload-artifact@v2
         with:
@@ -138,8 +138,8 @@ jobs:
             export GIT_LOG=$(git log --pretty=" - %s [%h]" $LATEST_TAG..HEAD | sed 's/ *$//g')
             if [ "$IS_RELEASE" = true ]; then
               export BODY=$(echo -e "$GIT_LOG")
-            else 
-              export LATEST_TAG_WITH_LINK=$(echo "[$LATEST_TAG](https://github.com/arduino/arduino-ide/releases/tag/$LATEST_TAG)")
+            else
+              export LATEST_TAG_WITH_LINK=$(echo "[$LATEST_TAG](https://github.com/OS-Q/S04B/releases/tag/$LATEST_TAG)")
               if [ -z "$GIT_LOG" ]; then
                   export BODY="There were no changes since version $LATEST_TAG_WITH_LINK."
               else
@@ -162,7 +162,7 @@ jobs:
 
   publish:
     needs: changelog
-    if: github.repository == 'arduino/arduino-ide' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    if: github.repository == 'OS-Q/S04B' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     steps:
       - name: Download [GitHub Actions]
@@ -183,7 +183,7 @@ jobs:
 
   release:
     needs: changelog
-    if: github.repository == 'arduino/arduino-ide' && startsWith(github.ref, 'refs/tags/')
+    if: github.repository == 'OS-Q/S04B' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - name: Download [GitHub Actions]
