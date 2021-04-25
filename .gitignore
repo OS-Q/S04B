@@ -20,3 +20,5 @@ LICENSE*
 *.png
 *.jpg
 README*
+*.yml
+!CI.yml

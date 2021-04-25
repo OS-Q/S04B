@@ -1,4 +1,4 @@
-name: Arduino IDE
+name: CI
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         config:
-          - os: windows-latest
+          # - os: windows-latest
           - os: ubuntu-18.04
           # - os: macos-latest
     runs-on: ${{ matrix.config.os }}
