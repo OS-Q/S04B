@@ -19,7 +19,7 @@ export class WorkspaceVariableContribution extends TheiaWorkspaceVariableContrib
 
     getResourceUri(): URI | undefined {
         const resourceUri = super.getResourceUri();
-        // https://github.com/OS-Q/S04B/issues/46
+        // https://github.com/OS-Q/M02/issues/46
         // `currentWidget` can be an editor representing a file outside of the workspace. The current sketch should be a fallback.
         if (!resourceUri && this.currentSketch?.uri) {
             return new URI(this.currentSketch.uri);

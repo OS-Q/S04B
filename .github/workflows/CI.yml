@@ -10,8 +10,8 @@ on:
   pull_request:
     branches:
       - master
-  schedule:
-    - cron: '0 3 * * *'
+  # schedule:
+  #   - cron: '0 3 * * *'
 
 env:
   JOB_TRANSFER_ARTIFACT: build-artifacts
@@ -19,7 +19,7 @@ env:
 jobs:
 
   build:
-    if: github.repository == 'OS-Q/S04B'
+    if: github.repository == 'OS-Q/M02'
     strategy:
       matrix:
         config:
@@ -138,7 +138,7 @@ jobs:
             if [ "$IS_RELEASE" = true ]; then
               export BODY=$(echo -e "$GIT_LOG")
             else
-              export LATEST_TAG_WITH_LINK=$(echo "[$LATEST_TAG](https://github.com/OS-Q/S04B/releases/tag/$LATEST_TAG)")
+              export LATEST_TAG_WITH_LINK=$(echo "[$LATEST_TAG](https://github.com/OS-Q/M02/releases/tag/$LATEST_TAG)")
               if [ -z "$GIT_LOG" ]; then
                   export BODY="There were no changes since version $LATEST_TAG_WITH_LINK."
               else
@@ -161,7 +161,7 @@ jobs:
 
   publish:
     needs: changelog
-    if: github.repository == 'OS-Q/S04B' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'))
+    if: github.repository == 'OS-Q/M02' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'))
     runs-on: ubuntu-latest
     steps:
       - name: Download [GitHub Actions]
@@ -182,7 +182,7 @@ jobs:
 
   release:
     needs: changelog
-    if: github.repository == 'OS-Q/S04B' && startsWith(github.ref, 'refs/tags/')
+    if: github.repository == 'OS-Q/M02' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - name: Download [GitHub Actions]
