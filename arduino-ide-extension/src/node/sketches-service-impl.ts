@@ -355,7 +355,7 @@ void loop() {
                 });
             });
         }
-        // https://github.com/OS-Q/M02/issues/65
+        // https://github.com/arduino/arduino-ide/issues/65
         // When copying `/path/to/sketchbook/sketch_A` to `/path/to/sketchbook/sketch_A/anything` on a non-POSIX filesystem,
         // `ncp` makes a recursion and copies the folders over and over again. In such cases, we copy the source into a temp folder,
         // then move it to the desired destination.

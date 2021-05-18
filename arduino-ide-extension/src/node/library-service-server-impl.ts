@@ -74,7 +74,7 @@ export class LibraryServiceImpl extends CoreClientAware implements LibraryServic
         req.setInstance(instance);
         if (fqbn) {
             // Only get libraries from the cores when the FQBN is defined. Otherwise, we retrieve user installed libraries only.
-            req.setAll(true); // https://github.com/OS-Q/M02/pull/303#issuecomment-815556447
+            req.setAll(true); // https://github.com/arduino/arduino-ide/pull/303#issuecomment-815556447
             req.setFqbn(fqbn);
         }
 
@@ -249,6 +249,7 @@ function toLibrary(pkg: Partial<LibraryPackage>, lib: LibraryRelease | Library, 
         label: '',
         exampleUris: [],
         installable: false,
+        deprecated: false,
         location: 0,
         ...pkg,
 
