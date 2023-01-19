@@ -1,0 +1,35 @@
+{
+    "type":"SoC",
+    "name":"EFR32FG14",
+    "title": "Silicon Labs EFR32FG14 SoC",
+    "description":"Silicon Labs Sub-GHz SoC",
+    "Core": {
+        "CoreNum": 1,
+        "Core":"Cortex-M4",
+        "Fmax":40,
+        "DMIPS": 120,
+        "CoreMark": 360
+    },
+    "manufacturer": {
+        "vendor":"Silicon Labs",
+        "homepage":"https://www.silabs.com/"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/SoCXin/EFR32FG14.git"
+    },
+    "version":"1.0.0",
+    "series":["EFR32FG14","EFR32FG13","EFR32FG12","EFR32FG1"],
+    "package":["QFN48","QFN32"],
+    "peripheral": ["Sub-GHz","DAC","ADC","ECC","UART","SPI","IIC"],
+    "ESD": {
+        "HBM": 2000,
+        "CDM": 500
+    },
+    "keywords": [
+        "Cortex-M4",
+        "Silicon Labs",
+        "Sub-GHz","DAC","ADC","ECC","UART","SPI","IIC",
+        "3.8V","1.8V"
+    ]
+}

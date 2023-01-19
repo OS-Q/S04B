@@ -1,25 +1,31 @@
-node_modules/
-# .node_modules is a hack for the electron builder.
-.node_modules/
-lib/
-downloads/
-build/
-Examples/
-!electron/build/
-src-gen/
-*webpack.config.js
-.DS_Store
-# switching from `electron` to `browser` in dev mode.
-.browser_modules
-yarn*.log
-# For the VS Code extensions used by Theia.
-plugins
-# the config files for the CLI
-arduino-ide-extension/data/cli/config
+.pio/
+.vscode/
+__pycache__/
+settings
+Debug
+*.py[cod]
+*$py.class
+*__pyc*/
+*.DS_Store
+*.autosave
+*~
+*#
+Change*
+CHANGE*
+# README*
+COPY*
+*CONTRIBU*
 LICENSE*
-*.png
-*.jpg
-README*
-*.yml
-!CI.yml
-*.md
+HACKING*
+Doxyfile
+*.swp
+*.lck
+*.log
+*.ewt
+*.ewd
+*.crf
+*.dep
+*.map
+*.hex
+*.bin
+*bak
